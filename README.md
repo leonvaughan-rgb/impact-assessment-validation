@@ -32,6 +32,7 @@ Open http://localhost:8080
 ```
 impact-assessment-validation/
 ├── index.html              # Document loader frontend
+├── package.json            # Static site marker for Vercel
 ├── vercel.json             # Vercel deployment config
 ├── samples/
 │   └── ia_example.json     # Sample IA fixture

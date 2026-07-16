@@ -1,0 +1,6 @@
+{
+  "name": "impact-assessment-validation",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Impact Assessment document loader and validation frontend"
+}
