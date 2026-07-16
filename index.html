@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Impact Assessment Validation — Document Loader</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.8.69/pdf.min.mjs" type="module"></script>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --surface-2: #243044;
+      --border: #2d3a4f;
+      --text: #e8edf4;
+      --muted: #8b9cb3;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --radius: 12px;
+      --shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 24px 20px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--accent), #6366f1);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .logo h1 {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .logo p {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 24px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .dropzone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 28px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      margin-bottom: 16px;
+    }
+
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--accent);
+      background: rgba(59, 130, 246, 0.08);
+    }
+
+    .dropzone-icon {
+      font-size: 32px;
+      margin-bottom: 8px;
+      opacity: 0.7;
+    }
+
+    .dropzone p {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .dropzone strong {
+      color: var(--accent);
+    }
+
+    .dropzone .formats {
+      font-size: 11px;
+      margin-top: 8px;
+      color: var(--muted);
+      opacity: 0.8;
+    }
+
+    input[type="file"] { display: none; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      border: none;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    .btn:active { transform: scale(0.98); }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+      width: 100%;
+    }
+
+    .btn-primary:hover { background: var(--accent-hover); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      width: 100%;
+      margin-top: 8px;
+    }
+
+    .btn-ghost:hover {
+      background: var(--surface-2);
+      color: var(--text);
+    }
+
+    .doc-list {
+      flex: 1;
+      overflow-y: auto;
+      margin-top: 20px;
+    }
+
+    .doc-list h3 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .doc-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-bottom: 4px;
+      transition: background 0.15s;
+    }
+
+    .doc-item:hover { background: var(--surface-2); }
+    .doc-item.active { background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); }
+
+    .doc-item-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      background: var(--surface-2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .doc-item-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .doc-item-name {
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .doc-item-meta {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .doc-item-remove {
+      opacity: 0;
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 4px;
+      font-size: 16px;
+      line-height: 1;
+    }
+
+    .doc-item:hover .doc-item-remove { opacity: 1; }
+    .doc-item-remove:hover { color: var(--danger); }
+
+    .empty-list {
+      font-size: 12px;
+      color: var(--muted);
+      padding: 12px;
+      text-align: center;
+    }
+
+    .main {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 28px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .toolbar h2 {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .toolbar-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .toolbar .btn {
+      width: auto;
+      padding: 8px 14px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 99px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .badge-json { background: rgba(34, 197, 94, 0.15); color: var(--success); }
+    .badge-xlsx { background: rgba(59, 130, 246, 0.15); color: var(--accent); }
+    .badge-docx { background: rgba(99, 102, 241, 0.15); color: #818cf8; }
+    .badge-pdf { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+    .badge-text { background: rgba(139, 156, 179, 0.15); color: var(--muted); }
+
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px;
+    }
+
+    .welcome {
+      max-width: 520px;
+      margin: 80px auto;
+      text-align: center;
+    }
+
+    .welcome-icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+      opacity: 0.4;
+    }
+
+    .welcome h2 {
+      font-size: 22px;
+      margin-bottom: 10px;
+    }
+
+    .welcome p {
+      color: var(--muted);
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+
+    .ia-header {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .ia-header h2 {
+      font-size: 22px;
+      margin-bottom: 8px;
+    }
+
+    .ia-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .ia-meta-item label {
+      display: block;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .ia-meta-item span {
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .status-draft { color: var(--warning); }
+    .status-approved { color: var(--success); }
+
+    .sections {
+      display: grid;
+      gap: 16px;
+    }
+
+    .section-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .section-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      background: var(--surface-2);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .section-card-header h3 {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .section-card-header .chevron {
+      transition: transform 0.2s;
+      color: var(--muted);
+    }
+
+    .section-card.open .chevron { transform: rotate(180deg); }
+
+    .section-card-body {
+      display: none;
+      padding: 18px;
+      font-size: 14px;
+    }
+
+    .section-card.open .section-card-body { display: block; }
+
+    .risk-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .risk-table th, .risk-table td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .risk-table th {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .score-high { color: var(--danger); font-weight: 600; }
+    .score-medium { color: var(--warning); font-weight: 600; }
+    .score-low { color: var(--success); font-weight: 600; }
+
+    .tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .tag {
+      background: var(--surface-2);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+
+    .raw-view {
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      overflow-x: auto;
+    }
+
+    .raw-view pre {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .html-view {
+      background: white;
+      color: #1a1a1a;
+      border-radius: var(--radius);
+      padding: 32px;
+      max-width: 800px;
+      line-height: 1.7;
+    }
+
+    .html-view h1, .html-view h2, .html-view h3 { margin: 1em 0 0.5em; }
+    .html-view p { margin-bottom: 0.8em; }
+    .html-view table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+    .html-view td, .html-view th { border: 1px solid #ddd; padding: 8px; }
+
+    .pdf-view canvas {
+      max-width: 100%;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      margin-bottom: 16px;
+    }
+
+    .sheet-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .sheet-tab {
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      color: var(--muted);
+    }
+
+    .sheet-tab.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    .excel-table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+
+    .excel-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .excel-table th, .excel-table td {
+      border: 1px solid var(--border);
+      padding: 8px 10px;
+      white-space: nowrap;
+    }
+
+    .excel-table th {
+      background: var(--surface-2);
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+    }
+
+    .view-toggle {
+      display: flex;
+      gap: 4px;
+      background: var(--surface-2);
+      padding: 4px;
+      border-radius: 8px;
+    }
+
+    .view-toggle button {
+      padding: 6px 12px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 500;
+      font-family: inherit;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .view-toggle button.active {
+      background: var(--surface);
+      color: var(--text);
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 14px 20px;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      font-size: 13px;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s;
+      z-index: 100;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .toast.error { border-color: var(--danger); }
+
+    @media (max-width: 900px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { border-right: none; border-bottom: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">📋</div>
+        <div>
+          <h1>IA Validation</h1>
+          <p>Document Loader</p>
+        </div>
+      </div>
+      <p class="subtitle">Load Impact Assessment documents from TCS exports or local files for validation.</p>
+
+      <div class="dropzone" id="dropzone">
+        <div class="dropzone-icon">📁</div>
+        <p>Drag & drop files here or <strong>browse</strong></p>
+        <p class="formats">JSON · Excel · Word · PDF · TXT · MD</p>
+      </div>
+      <input type="file" id="fileInput" multiple accept=".json,.xlsx,.xls,.docx,.pdf,.txt,.md,.csv">
+
+      <button class="btn btn-primary" id="browseBtn">Choose Files</button>
+      <button class="btn btn-ghost" id="sampleBtn">Load Sample IA</button>
+
+      <div class="doc-list">
+        <h3>Loaded Documents (<span id="docCount">0</span>)</h3>
+        <div id="docListContainer">
+          <p class="empty-list">No documents loaded yet</p>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="toolbar" id="toolbar" style="display: none;">
+        <div>
+          <h2 id="activeTitle">Document</h2>
+        </div>
+        <div class="toolbar-actions">
+          <div class="view-toggle" id="viewToggle" style="display: none;">
+            <button class="active" data-view="structured">Structured</button>
+            <button data-view="raw">Raw</button>
+          </div>
+          <span id="typeBadge"></span>
+        </div>
+      </div>
+
+      <div class="content" id="content">
+        <div class="welcome">
+          <div class="welcome-icon">📄</div>
+          <h2>Load an Impact Assessment</h2>
+          <p>Upload IA documents exported from TCS or drop local files to preview and prepare them for validation.</p>
+          <button class="btn btn-primary" style="width: auto; margin: 0 auto;" id="welcomeSampleBtn">Try Sample Document</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module">
+    const documents = [];
+    let activeId = null;
+
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const browseBtn = document.getElementById('browseBtn');
+    const sampleBtn = document.getElementById('sampleBtn');
+    const welcomeSampleBtn = document.getElementById('welcomeSampleBtn');
+    const docListContainer = document.getElementById('docListContainer');
+    const docCount = document.getElementById('docCount');
+    const content = document.getElementById('content');
+    const toolbar = document.getElementById('toolbar');
+    const activeTitle = document.getElementById('activeTitle');
+    const typeBadge = document.getElementById('typeBadge');
+    const viewToggle = document.getElementById('viewToggle');
+    const toast = document.getElementById('toast');
+
+    const FILE_ICONS = {
+      json: '{ }',
+      xlsx: '▦',
+      xls: '▦',
+      docx: 'W',
+      pdf: 'PDF',
+      txt: 'T',
+      md: 'M',
+      csv: ',',
+    };
+
+    function showToast(msg, isError = false) {
+      toast.textContent = msg;
+      toast.className = 'toast show' + (isError ? ' error' : '');
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    function getExt(name) {
+      return name.split('.').pop().toLowerCase();
+    }
+
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / 1048576).toFixed(1) + ' MB';
+    }
+
+    function uid() {
+      return 'doc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+    }
+
+    browseBtn.addEventListener('click', () => fileInput.click());
+    dropzone.addEventListener('click', () => fileInput.click());
+
+    dropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzone.classList.add('dragover');
+    });
+
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      handleFiles(e.dataTransfer.files);
+    });
+
+    fileInput.addEventListener('change', () => {
+      handleFiles(fileInput.files);
+      fileInput.value = '';
+    });
+
+    sampleBtn.addEventListener('click', loadSample);
+    welcomeSampleBtn.addEventListener('click', loadSample);
+
+    async function loadSample() {
+      try {
+        const res = await fetch('samples/ia_example.json');
+        if (!res.ok) throw new Error('Sample not found');
+        const text = await res.text();
+        const doc = {
+          id: uid(),
+          name: 'ia_example.json',
+          ext: 'json',
+          size: text.length,
+          loadedAt: new Date(),
+          parsed: JSON.parse(text),
+          raw: text,
+          renderType: 'ia-json',
+        };
+        documents.push(doc);
+        renderDocList();
+        selectDoc(doc.id);
+        showToast('Sample IA loaded');
+      } catch (err) {
+        showToast('Could not load sample: ' + err.message, true);
+      }
+    }
+
+    async function handleFiles(fileList) {
+      for (const file of fileList) {
+        try {
+          const doc = await parseFile(file);
+          documents.push(doc);
+        } catch (err) {
+          showToast(`Failed to load ${file.name}: ${err.message}`, true);
+        }
+      }
+      if (documents.length) {
+        renderDocList();
+        if (!activeId) selectDoc(documents[documents.length - 1].id);
+        showToast(`Loaded ${fileList.length} file(s)`);
+      }
+    }
+
+    async function parseFile(file) {
+      const ext = getExt(file.name);
+      const doc = {
+        id: uid(),
+        name: file.name,
+        ext,
+        size: file.size,
+        loadedAt: new Date(),
+        parsed: null,
+        raw: null,
+        html: null,
+        sheets: null,
+        pdfPages: null,
+        renderType: 'raw',
+      };
+
+      if (ext === 'json') {
+        const text = await file.text();
+        doc.raw = text;
+        doc.parsed = JSON.parse(text);
+        doc.renderType = isIAStructure(doc.parsed) ? 'ia-json' : 'json';
+      } else if (ext === 'xlsx' || ext === 'xls') {
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: 'array' });
+        doc.sheets = {};
+        wb.SheetNames.forEach((name) => {
+          doc.sheets[name] = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: '' });
+        });
+        doc.renderType = 'excel';
+      } else if (ext === 'csv') {
+        const text = await file.text();
+        doc.raw = text;
+        const rows = text.trim().split('\n').map((r) => r.split(','));
+        doc.sheets = { Sheet1: rows };
+        doc.renderType = 'excel';
+      } else if (ext === 'docx') {
+        const buf = await file.arrayBuffer();
+        const result = await mammoth.convertToHtml({ arrayBuffer: buf });
+        doc.html = result.value;
+        doc.renderType = 'docx';
+      } else if (ext === 'pdf') {
+        const buf = await file.arrayBuffer();
+        doc.pdfPages = await renderPdfPages(buf);
+        doc.renderType = 'pdf';
+      } else {
+        doc.raw = await file.text();
+        doc.renderType = ext === 'md' ? 'markdown' : 'text';
+      }
+
+      return doc;
+    }
+
+    async function renderPdfPages(buffer) {
+      const pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.8.69/pdf.min.mjs');
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.8.69/pdf.worker.min.mjs';
+      const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+      const pages = [];
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: 1.5 });
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+        pages.push(canvas);
+      }
+      return pages;
+    }
+
+    function isIAStructure(obj) {
+      return obj && typeof obj === 'object' && (obj.metadata || obj.scope || obj.risks);
+    }
+
+    function renderDocList() {
+      docCount.textContent = documents.length;
+      if (!documents.length) {
+        docListContainer.innerHTML = '<p class="empty-list">No documents loaded yet</p>';
+        return;
+      }
+      docListContainer.innerHTML = documents.map((d) => `
+        <div class="doc-item ${d.id === activeId ? 'active' : ''}" data-id="${d.id}">
+          <div class="doc-item-icon">${FILE_ICONS[d.ext] || '?'}</div>
+          <div class="doc-item-info">
+            <div class="doc-item-name">${escapeHtml(d.name)}</div>
+            <div class="doc-item-meta">${formatSize(d.size)} · ${d.ext.toUpperCase()}</div>
+          </div>
+          <button class="doc-item-remove" data-remove="${d.id}" title="Remove">×</button>
+        </div>
+      `).join('');
+
+      docListContainer.querySelectorAll('.doc-item').forEach((el) => {
+        el.addEventListener('click', (e) => {
+          if (e.target.dataset.remove) return;
+          selectDoc(el.dataset.id);
+        });
+      });
+
+      docListContainer.querySelectorAll('[data-remove]').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          removeDoc(btn.dataset.remove);
+        });
+      });
+    }
+
+    function removeDoc(id) {
+      const idx = documents.findIndex((d) => d.id === id);
+      if (idx === -1) return;
+      documents.splice(idx, 1);
+      if (activeId === id) {
+        activeId = documents.length ? documents[0].id : null;
+        if (activeId) selectDoc(activeId);
+        else showWelcome();
+      }
+      renderDocList();
+    }
+
+    function selectDoc(id) {
+      activeId = id;
+      renderDocList();
+      const doc = documents.find((d) => d.id === id);
+      if (!doc) return;
+      toolbar.style.display = 'flex';
+      activeTitle.textContent = doc.name;
+      typeBadge.innerHTML = `<span class="badge badge-${doc.ext === 'json' || doc.ext === 'csv' ? 'json' : doc.ext}">${doc.ext.toUpperCase()}</span>`;
+
+      const showToggle = doc.renderType === 'ia-json' || doc.renderType === 'json';
+      viewToggle.style.display = showToggle ? 'flex' : 'none';
+      viewToggle.querySelectorAll('button').forEach((b) => {
+        b.classList.toggle('active', b.dataset.view === 'structured');
+      });
+
+      renderDocument(doc, 'structured');
+    }
+
+    viewToggle.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      viewToggle.querySelectorAll('button').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      const doc = documents.find((d) => d.id === activeId);
+      if (doc) renderDocument(doc, btn.dataset.view);
+    });
+
+    function renderDocument(doc, view = 'structured') {
+      if (doc.renderType === 'ia-json' && view === 'structured') {
+        content.innerHTML = renderIAStructured(doc.parsed);
+        bindSectionToggles();
+      } else if (doc.renderType === 'json') {
+        content.innerHTML = view === 'structured'
+          ? renderGenericJson(doc.parsed)
+          : renderRaw(doc.raw || JSON.stringify(doc.parsed, null, 2));
+      } else if (doc.renderType === 'excel') {
+        content.innerHTML = renderExcel(doc.sheets);
+        bindSheetTabs();
+      } else if (doc.renderType === 'docx') {
+        content.innerHTML = `<div class="html-view">${doc.html}</div>`;
+      } else if (doc.renderType === 'pdf') {
+        content.innerHTML = '<div class="pdf-view" id="pdfView"></div>';
+        const pv = document.getElementById('pdfView');
+        doc.pdfPages.forEach((c) => pv.appendChild(c));
+      } else {
+        content.innerHTML = renderRaw(doc.raw);
+      }
+    }
+
+    function renderIAStructured(ia) {
+      const meta = ia.metadata || {};
+      const statusClass = (meta.status || '').includes('approv') ? 'status-approved' : 'status-draft';
+
+      let html = `
+        <div class="ia-header">
+          <h2>${escapeHtml(meta.title || 'Untitled Impact Assessment')}</h2>
+          <div class="ia-meta-grid">
+            <div class="ia-meta-item"><label>IA ID</label><span>${escapeHtml(meta.ia_id || '—')}</span></div>
+            <div class="ia-meta-item"><label>Version</label><span>${escapeHtml(meta.version || '—')}</span></div>
+            <div class="ia-meta-item"><label>Status</label><span class="${statusClass}">${escapeHtml(meta.status || '—')}</span></div>
+            <div class="ia-meta-item"><label>Owner</label><span>${escapeHtml(meta.owner || '—')}</span></div>
+            <div class="ia-meta-item"><label>Created</label><span>${escapeHtml(meta.created_at || '—')}</span></div>
+            <div class="ia-meta-item"><label>Updated</label><span>${escapeHtml(meta.updated_at || '—')}</span></div>
+          </div>
+        </div>
+        <div class="sections">
+      `;
+
+      if (ia.scope) {
+        html += section('Scope', `
+          <p>${escapeHtml(ia.scope.summary || '')}</p>
+          ${tagList('Systems', ia.scope.systems)}
+          ${tagList('Processes', ia.scope.processes)}
+          ${tagList('Geographies', ia.scope.geographies)}
+        `, true);
+      }
+
+      if (ia.data) {
+        html += section('Data', `
+          ${tagList('Categories', ia.data.categories)}
+          <p style="margin-top:12px"><strong>Data subjects:</strong> ${escapeHtml(ia.data.subjects || '—')}</p>
+          <p><strong>Retention:</strong> ${escapeHtml(ia.data.retention || '—')}</p>
+          <p><strong>Transfers:</strong> ${escapeHtml(ia.data.transfers || '—')}</p>
+        `);
+      }
+
+      if (ia.risks?.items?.length) {
+        const rows = ia.risks.items.map((r) => {
+          const scoreClass = r.inherent_score >= 12 ? 'score-high' : r.inherent_score >= 6 ? 'score-medium' : 'score-low';
+          return `<tr>
+            <td>${escapeHtml(r.risk_id)}</td>
+            <td>${escapeHtml(r.description)}</td>
+            <td>${r.likelihood}</td>
+            <td>${r.impact}</td>
+            <td class="${scoreClass}">${r.inherent_score}</td>
+          </tr>`;
+        }).join('');
+        html += section('Risks', `
+          <table class="risk-table">
+            <thead><tr><th>ID</th><th>Description</th><th>L</th><th>I</th><th>Score</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        `, true);
+      }
+
+      if (ia.mitigations?.controls?.length) {
+        const rows = ia.mitigations.controls.map((c) => `
+          <tr><td>${escapeHtml(c.control_id)}</td><td>${escapeHtml(c.risk_id)}</td><td>${escapeHtml(c.description)}</td></tr>
+        `).join('');
+        html += section('Mitigations', `
+          <table class="risk-table">
+            <thead><tr><th>Control</th><th>Risk</th><th>Description</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        `);
+      }
+
+      if (ia.residual) {
+        html += section('Residual Risk', `
+          <p><strong>Level:</strong> ${escapeHtml(ia.residual.residual_risk || '—')}</p>
+          <p><strong>Acceptance:</strong> ${escapeHtml(ia.residual.acceptance || '—')}</p>
+          <p><strong>Approver:</strong> ${escapeHtml(ia.residual.approver || '—')}</p>
+        `);
+      }
+
+      if (ia.sign_off) {
+        html += section('Sign-off', `
+          ${tagList('Reviewers', ia.sign_off.reviewers)}
+          <p style="margin-top:12px"><strong>Approved:</strong> ${escapeHtml(ia.sign_off.approved_at || 'Pending')}</p>
+        `);
+      }
+
+      html += '</div>';
+      return html;
+    }
+
+    function section(title, body, open = false) {
+      return `
+        <div class="section-card ${open ? 'open' : ''}">
+          <div class="section-card-header">
+            <h3>${title}</h3>
+            <span class="chevron">▼</span>
+          </div>
+          <div class="section-card-body">${body}</div>
+        </div>
+      `;
+    }
+
+    function tagList(label, items) {
+      if (!items?.length) return '';
+      const tags = items.map((t) => `<span class="tag">${escapeHtml(String(t))}</span>`).join('');
+      return `<p><strong>${label}:</strong></p><div class="tag-list">${tags}</div>`;
+    }
+
+    function renderGenericJson(obj) {
+      return `<div class="raw-view"><pre>${escapeHtml(JSON.stringify(obj, null, 2))}</pre></div>`;
+    }
+
+    function renderRaw(text) {
+      return `<div class="raw-view"><pre>${escapeHtml(text || '')}</pre></div>`;
+    }
+
+    function renderExcel(sheets) {
+      const names = Object.keys(sheets);
+      let html = '<div class="sheet-tabs">';
+      names.forEach((n, i) => {
+        html += `<button class="sheet-tab ${i === 0 ? 'active' : ''}" data-sheet="${escapeHtml(n)}">${escapeHtml(n)}</button>`;
+      });
+      html += '</div><div id="sheetContent">';
+      html += sheetTable(sheets[names[0]]);
+      html += '</div>';
+      return html;
+    }
+
+    function sheetTable(rows) {
+      if (!rows?.length) return '<p class="empty-list">Empty sheet</p>';
+      const header = rows[0];
+      let html = '<div class="excel-table-wrap"><table class="excel-table"><thead><tr>';
+      header.forEach((h) => { html += `<th>${escapeHtml(String(h))}</th>`; });
+      html += '</tr></thead><tbody>';
+      rows.slice(1).forEach((row) => {
+        html += '<tr>';
+        header.forEach((_, i) => { html += `<td>${escapeHtml(String(row[i] ?? ''))}</td>`; });
+        html += '</tr>';
+      });
+      html += '</tbody></table></div>';
+      return html;
+    }
+
+    function bindSectionToggles() {
+      content.querySelectorAll('.section-card-header').forEach((h) => {
+        h.addEventListener('click', () => h.parentElement.classList.toggle('open'));
+      });
+    }
+
+    function bindSheetTabs() {
+      const doc = documents.find((d) => d.id === activeId);
+      if (!doc?.sheets) return;
+      content.querySelectorAll('.sheet-tab').forEach((tab) => {
+        tab.addEventListener('click', () => {
+          content.querySelectorAll('.sheet-tab').forEach((t) => t.classList.remove('active'));
+          tab.classList.add('active');
+          document.getElementById('sheetContent').innerHTML = sheetTable(doc.sheets[tab.dataset.sheet]);
+        });
+      });
+    }
+
+    function showWelcome() {
+      toolbar.style.display = 'none';
+      content.innerHTML = `
+        <div class="welcome">
+          <div class="welcome-icon">📄</div>
+          <h2>Load an Impact Assessment</h2>
+          <p>Upload IA documents exported from TCS or drop local files to preview and prepare them for validation.</p>
+          <button class="btn btn-primary" style="width: auto; margin: 0 auto;" id="welcomeSampleBtn2">Try Sample Document</button>
+        </div>
+      `;
+      document.getElementById('welcomeSampleBtn2').addEventListener('click', loadSample);
+    }
+
+    function escapeHtml(str) {
+      if (str == null) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+  </script>
+</body>
+</html>

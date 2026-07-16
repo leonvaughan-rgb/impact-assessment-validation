@@ -1,0 +1,49 @@
+# Impact Assessment Validation
+
+A web frontend for loading and previewing Impact Assessment (IA) documents exported from TCS, preparing them for quality validation.
+
+## Live site
+
+After deployment, the app is available at:
+
+**https://leonvaughan-rgb.github.io/impact-assessment-validation/**
+
+## Features
+
+- **Drag & drop** or browse to load IA documents
+- Supported formats: **JSON**, **Excel** (.xlsx/.xls), **Word** (.docx), **PDF**, **CSV**, **TXT**, **Markdown**
+- **Structured view** for IA JSON documents (metadata, scope, risks, mitigations, sign-off)
+- **Raw view** toggle for JSON inspection
+- **Sample document** for quick testing
+
+## Local development
+
+Serve the folder with any static file server:
+
+```bash
+cd impact-assessment-validation
+python3 -m http.server 8080
+```
+
+Open http://localhost:8080
+
+## Project structure
+
+```
+impact-assessment-validation/
+├── index.html              # Document loader frontend
+├── samples/
+│   └── ia_example.json     # Sample IA fixture
+└── .github/workflows/
+    └── pages.yml           # GitHub Pages deployment
+```
+
+## Next steps
+
+- Wire validation agent to run quality checks on loaded documents
+- Connect TCS API for live document fetch
+- Export validation reports
+
+## License
+
+TBD
