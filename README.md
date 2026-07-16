@@ -32,10 +32,10 @@ Open http://localhost:8080
 ```
 impact-assessment-validation/
 ├── index.html              # Document loader frontend
+├── vercel.json             # Vercel deployment config
 ├── samples/
 │   └── ia_example.json     # Sample IA fixture
-└── .github/workflows/
-    └── pages.yml           # GitHub Pages deployment
+└── .nojekyll               # GitHub Pages static assets
 ```
 
 ## Next steps
