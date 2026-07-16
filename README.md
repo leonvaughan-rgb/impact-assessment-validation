@@ -4,9 +4,9 @@ A web frontend for loading and previewing Impact Assessment (IA) documents expor
 
 ## Live site
 
-After deployment, the app is available at:
+The app is deployed from the `gh-pages` branch. Enable GitHub Pages once in repo **Settings → Pages → Build and deployment → Branch: `gh-pages` / `/ (root)`**.
 
-**https://leonvaughan-rgb.github.io/impact-assessment-validation/**
+Live URL: **https://leonvaughan-rgb.github.io/impact-assessment-validation/**
 
 ## Features
 
