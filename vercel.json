@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "name": "impact-assessment-validation",
+  "public": true,
+  "headers": [
+    {
+      "source": "/samples/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Cache-Control", "value": "public, max-age=3600" }
+      ]
+    }
+  ]
+}

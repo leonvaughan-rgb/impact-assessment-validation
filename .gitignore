@@ -24,3 +24,4 @@ venv/
 dist/
 build/
 *.log
+.tools/
